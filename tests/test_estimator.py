@@ -118,3 +118,10 @@ def test_cli_train_then_estimate(tmp_path, history, capsys):
     out = json.loads(capsys.readouterr().out.split("\n", 1)[1])
     assert 1 < out["hours"] < 10
     assert np.isfinite(out["low"]) and out["low"] <= out["hours"] <= out["high"]
+    assert out["size"] in ("S", "M") and out["reference_class"]["p10"] <= out["reference_class"]["p90"]
+
+    main(["forecast", "--data", str(data), "--items", "30", "--hours", "4", "8"])
+    text = capsys.readouterr().out
+    assert "Throughput forecast for 30 tickets" in text and "Evidence-based forecast" in text
+    main(["calibrate", "--data", str(data)])
+    assert "WEB" in capsys.readouterr().out

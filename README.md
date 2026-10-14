@@ -58,6 +58,32 @@ responses (REST or Atlassian MCP format) or directories of them via `--data`.
 
 `data/` and `models/` are git-ignored because they contain company ticket data.
 
+## PM methods
+
+`ticket_estimator/methods.py` adds the estimation and forecasting methods established product
+and engineering teams use:
+
+| Method | Question it answers | Command |
+|---|---|---|
+| T-shirt sizing (XS ≤1h … XL ≤1 week, bigger = split it) | Roughly how big, for a roadmap? | `estimate` |
+| Reference class forecasting ("outside view") | What did the most similar past tickets take? | `estimate` |
+| PERT three-point (from the reference class P10/P50/P90) | What's the expected effort? | `estimate` |
+| Evidence-Based Scheduling (Monte Carlo over past actual ÷ estimate) | How long will these estimates really take? | `forecast --hours 4 8 16` |
+| Throughput Monte Carlo (Kanban / #NoEstimates) | When will N tickets be done? | `forecast --items 40 --project MT` |
+| Calibration | Do we under- or over-estimate, and by how much? | `calibrate --by project` |
+
+```bash
+# Forecast the open sprint: uses original estimates, and the model where a ticket has none
+ticket-estimator forecast --jql "sprint in openSprints() AND project = MT" --project MT
+
+# Commit at P85 rather than the sum of estimates
+# Evidence-based forecast for 7 estimates totalling 51.0h: 50% chance ≤ 45.2 hours;
+#   85% chance ≤ 60.9 hours; 95% chance ≤ 74.8 hours  (based on 99 actual/estimate ratios from project MT)
+```
+
+`forecast` and `calibrate` use the same history file as `train`. With `--assignee`, `forecast` uses
+that person's own estimate history once they have at least 10 estimated tickets.
+
 ## How it works
 
 `ticket_estimator/model.py` blends two learners in log-hours space:

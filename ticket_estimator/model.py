@@ -56,7 +56,9 @@ class Estimate:
     low: float
     high: float
     similar: list[Similar]
+    reference_hours: list[float]  # actual hours of the closest past tickets (the "outside view")
     team_estimate_bias: float | None  # median actual/estimate for this project+type; >1 means under-estimating
+    bias_scope: str = ""              # which history the bias came from, e.g. "MT Bug"
 
 
 class EffortModel:
@@ -157,17 +159,23 @@ class EffortModel:
         pred = np.minimum(self.blend * ridge + (1 - self.blend) * knn, self.y_cap)
         return pred, sims
 
-    def estimate(self, ticket: Ticket, n_similar: int = 5) -> Estimate:
+    def estimate(self, ticket: Ticket, n_similar: int = 5, reference_size: int = 15) -> Estimate:
         pred, sims = self.predict_log([ticket])
         p, row = pred[0], sims[0]
-        top = np.argsort(-row)[:n_similar]
+        order = np.argsort(-row)
+        top = order[:n_similar]
         similar = [Similar(self.train_meta[i][0], self.train_meta[i][1], self.train_meta[i][2], float(row[i]))
                    for i in top if row[i] > 0]
-        bias = self.bias.get((ticket.project, ticket.issue_type), self.bias.get((ticket.project, "*")))
+        if (ticket.project, ticket.issue_type) in self.bias:
+            bias, scope = self.bias[(ticket.project, ticket.issue_type)], f"{ticket.project} {ticket.issue_type}"
+        else:
+            bias, scope = self.bias.get((ticket.project, "*")), ticket.project
         return Estimate(
             hours=float(np.expm1(p)),
             low=float(max(np.expm1(p + self.resid_lo), 0.0)),
             high=float(np.expm1(p + self.resid_hi)),
             similar=similar,
+            reference_hours=[self.train_meta[i][2] for i in order[:reference_size]],
             team_estimate_bias=bias,
+            bias_scope=scope,
         )

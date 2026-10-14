@@ -1,4 +1,4 @@
-"""Command line entry point: fetch history, train, back-test and estimate."""
+"""Command line entry point: fetch history, train, back-test, estimate, calibrate and forecast."""
 
 from __future__ import annotations
 
@@ -11,6 +11,8 @@ import joblib
 
 from .evaluate import backtest
 from .jira import JiraClient, fetch_history, history_fields
+from .methods import (calibration, ebs_forecast, ratio_history, reference_class, throughput_forecast,
+                      tshirt_size, weekly_throughput)
 from .model import EffortModel, Estimate
 from .records import DEFAULT_STORY_POINTS_FIELD, Ticket, load_tickets, ticket_from_issue
 
@@ -26,11 +28,17 @@ def _hours(h: float) -> str:
 def format_estimate(est: Estimate, ticket: Ticket) -> str:
     lines = [f"Estimate for: {ticket.summary}",
              f"  Most likely : {_hours(est.hours)}",
-             f"  Likely range: {_hours(est.low)} – {_hours(est.high)}  (wide on purpose: see `backtest` for how often it holds)"]
+             f"  Likely range: {_hours(est.low)} – {_hours(est.high)}  (wide on purpose: see `backtest` for how often it holds)",
+             f"  T-shirt size: {tshirt_size(est.hours)}"]
+    if est.reference_hours:
+        rc = reference_class(est.reference_hours)
+        lines.append(f"  Outside view: {len(est.reference_hours)} closest past tickets took "
+                     f"{_hours(rc.optimistic)} / {_hours(rc.likely)} / {_hours(rc.pessimistic)} (P10/P50/P90); "
+                     f"PERT mean {_hours(rc.mean)}")
     if est.team_estimate_bias:
         b = est.team_estimate_bias
         verdict = "over-run" if b > 1.1 else "finish under" if b < 0.9 else "land close to"
-        lines.append(f"  History     : {ticket.project} tickets typically {verdict} their original estimate "
+        lines.append(f"  History     : {est.bias_scope} tickets typically {verdict} their original estimate "
                      f"(actual/estimate = {b:.2f})")
     if est.similar:
         lines.append("  Most similar past tickets:")
@@ -74,11 +82,48 @@ def cmd_estimate(args: argparse.Namespace) -> None:
         sys.exit("Pass --issue KEY or --summary TEXT")
     est = model.estimate(ticket)
     if args.json:
+        rc = reference_class(est.reference_hours)
         print(json.dumps({"ticket": ticket.key, "hours": est.hours, "low": est.low, "high": est.high,
+                          "size": tshirt_size(est.hours),
+                          "reference_class": {"p10": rc.optimistic, "p50": rc.likely, "p90": rc.pessimistic,
+                                              "pert_mean": rc.mean},
                           "team_estimate_bias": est.team_estimate_bias,
                           "similar": [s.__dict__ for s in est.similar]}, indent=2))
     else:
         print(format_estimate(est, ticket))
+
+
+def cmd_calibrate(args: argparse.Namespace) -> None:
+    tickets = load_tickets(args.data, args.story_points_field)
+    rows = calibration(tickets, by=args.by)
+    print(f"How actual time compares with the original estimate, by {args.by.replace('_', ' ')}:")
+    print(f"  {'group':<24} {'tickets':>7} {'actual/est':>10} {'middle 50%':>13} {'within ±25%':>12}")
+    for c in rows:
+        print(f"  {c.group[:24]:<24} {c.n:>7} {c.median_ratio:>10.2f} {c.p25:>6.2f}–{c.p75:<6.2f} {c.within_25pct:>11.0%}")
+
+
+def cmd_forecast(args: argparse.Namespace) -> None:
+    tickets = load_tickets(args.data, args.story_points_field)
+    hours = list(args.hours or [])
+    items = args.items
+    if args.jql:
+        model: EffortModel = joblib.load(args.model)
+        open_tickets = [ticket_from_issue(i, args.story_points_field)
+                        for i in JiraClient().search(args.jql, history_fields(args.story_points_field))]
+        guessed = [t for t in open_tickets if not t.hours_estimated]
+        hours += [t.hours_estimated for t in open_tickets if t.hours_estimated]
+        hours += [model.estimate(t).hours for t in guessed]
+        items = items or len(open_tickets)
+        print(f"{len(open_tickets)} open tickets; {len(guessed)} had no original estimate, so the model filled it in.")
+    if items:
+        tp = weekly_throughput(tickets, args.weeks, args.project)
+        print(f"Throughput forecast for {items} tickets: " + throughput_forecast(tp, items).describe())
+    if hours:
+        ratios, scope = ratio_history(tickets, args.project, args.assignee)
+        f = ebs_forecast(hours, ratios, basis=f"{ratios.size} actual/estimate ratios from {scope}")
+        print(f"Evidence-based forecast for {len(hours)} estimates totalling {sum(hours):,.1f}h: " + f.describe())
+    if not (items or hours):
+        sys.exit("Pass --items N, --hours H [H ...], or --jql for open tickets")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -101,6 +146,22 @@ def build_parser() -> argparse.ArgumentParser:
             s.add_argument("--model", type=Path, default=DEFAULT_MODEL)
         else:
             s.add_argument("--test-fraction", type=float, default=0.2)
+
+    c = sub.add_parser("calibrate", help="How actual time compares with original estimates")
+    c.add_argument("--data", type=Path, nargs="+", default=[DEFAULT_DATA])
+    c.add_argument("--by", choices=["project", "issue_type", "assignee"], default="project")
+    c.set_defaults(func=cmd_calibrate)
+
+    fc = sub.add_parser("forecast", help="Monte Carlo delivery forecast for a batch of work")
+    fc.add_argument("--data", type=Path, nargs="+", default=[DEFAULT_DATA])
+    fc.add_argument("--items", type=int, help="Number of tickets to finish (throughput forecast)")
+    fc.add_argument("--hours", type=float, nargs="+", help="Original estimates in hours (evidence-based forecast)")
+    fc.add_argument("--jql", help="Open tickets to forecast, e.g. 'sprint in openSprints() AND project = MT'")
+    fc.add_argument("--model", type=Path, default=DEFAULT_MODEL, help="Used for tickets without an estimate")
+    fc.add_argument("--project", default="", help="Limit history to one project")
+    fc.add_argument("--assignee", default="", help="Use this person's estimate history when there is enough")
+    fc.add_argument("--weeks", type=int, default=12, help="Weeks of throughput history to sample")
+    fc.set_defaults(func=cmd_forecast)
 
     e = sub.add_parser("estimate", help="Estimate a ticket")
     e.add_argument("--model", type=Path, default=DEFAULT_MODEL)
