@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# Jira exports and trained models contain company data — never commit them
+data/
+models/
+.env
+*.egg-info/

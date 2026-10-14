@@ -1,0 +1,24 @@
+[project]
+name = "ticket-estimator"
+version = "0.1.0"
+description = "Estimate effort for new Jira tickets from your team's own history"
+requires-python = ">=3.10"
+dependencies = [
+    "scikit-learn>=1.3",
+    "numpy>=1.24",
+    "requests>=2.31",
+    "joblib>=1.3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+ticket-estimator = "ticket_estimator.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["ticket_estimator"]
