@@ -1,0 +1,89 @@
+# Copy to profile.toml (git-ignored) and make it yours. Matching is only as good as this file.
+
+[me]
+name = "Shashi Prasad K"
+email = "you@gmail.com"              # also the From: address on recruiter emails
+phone = "+91 ..."
+linkedin = "https://www.linkedin.com/in/..."
+resume = "resume.pdf"                # attached to every email; path relative to this file
+years_experience = 5
+summary = """
+I'm an IT Project Manager who delivers software projects on time through Agile/Scrum, tight
+stakeholder communication and disciplined risk management.
+"""
+
+[preferences]
+titles = ["IT Project Manager", "Project Manager", "Technical Project Manager", "Program Manager",
+          "Delivery Manager", "Scrum Master"]
+work_modes = ["remote", "hybrid", "onsite"]
+# Hybrid/on-site jobs must be in one of these; remote jobs must allow one of these or a remote_region
+locations = ["India", "Bengaluru", "Bangalore", "Mysuru", "Hyderabad", "Pune", "Chennai"]
+remote_regions = ["worldwide", "anywhere", "global", "apac", "asia"]
+exclude_keywords = ["intern", "internship", "sales", "construction", "civil", "sap basis"]
+min_score = 55                       # 0–100; raise it if you see noise, lower it if you see too little
+
+# Your skills. weight 2 = core skill; aliases catch the other ways postings say the same thing.
+[[skills]]
+name = "Project management"
+aliases = ["project manager", "managing projects"]
+weight = 2
+[[skills]]
+name = "Agile"
+weight = 2
+[[skills]]
+name = "Scrum"
+aliases = ["scrum master", "sprint planning"]
+weight = 2
+[[skills]]
+name = "Jira"
+aliases = ["atlassian"]
+[[skills]]
+name = "Confluence"
+[[skills]]
+name = "Stakeholder management"
+aliases = ["stakeholder communication", "stakeholders"]
+weight = 1.5
+[[skills]]
+name = "Risk management"
+aliases = ["risk mitigation", "RAID"]
+[[skills]]
+name = "SDLC"
+aliases = ["software development life cycle"]
+[[skills]]
+name = "Waterfall"
+[[skills]]
+name = "MS Project"
+aliases = ["Microsoft Project"]
+[[skills]]
+name = "Budgeting"
+aliases = ["budget management", "cost control"]
+[[skills]]
+name = "Kanban"
+[[skills]]
+name = "Excel"
+aliases = ["MS Excel", "spreadsheets"]
+[[skills]]
+name = "Fintech"
+aliases = ["financial services", "banking", "BFSI"]
+
+[apply]
+daily_limit = 15                     # max recruiter emails per day — keeps you out of spam filters
+seconds_between_emails = 60
+subject = "Application for {title} – {name}"
+# Optional custom body. Placeholders: {name} {title} {company} {location} {work_mode} {matched_skills}
+# {summary} {years} {email} {phone} {linkedin} {url} {score}
+# template = """Hi {company} team, ..."""
+
+[sources]
+enabled = ["remotive", "remoteok", "jobicy", "himalayas", "arbeitnow", "themuse", "adzuna",
+           "greenhouse", "lever", "ashby"]
+themuse_category = "Project Management"
+# Company career boards — the slug from the company's jobs URL, e.g. boards.greenhouse.io/<slug>,
+# jobs.lever.co/<slug>, jobs.ashbyhq.com/<slug>. These are examples; add the companies you want.
+greenhouse = ["stripe", "gitlab"]
+lever = ["palantir"]
+ashby = ["ramp"]
+
+[sources.adzuna]                     # needs ADZUNA_APP_ID / ADZUNA_APP_KEY (free)
+country = "in"
+max_days_old = 30

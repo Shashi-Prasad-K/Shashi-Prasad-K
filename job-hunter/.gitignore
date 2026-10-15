@@ -1,0 +1,7 @@
+# Your personal data: profile, résumé, job database and outgoing mail
+profile.toml
+*.pdf
+*.docx
+data/
+outbox/
+.env

@@ -1,0 +1,19 @@
+[project]
+name = "job-hunter"
+version = "0.1.0"
+description = "Collect remote, hybrid and on-site openings, match them to your skills, and apply"
+requires-python = ">=3.11"
+dependencies = ["requests>=2.31"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[project.scripts]
+job-hunter = "job_hunter.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["job_hunter"]
